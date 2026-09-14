@@ -192,6 +192,12 @@ data/
 streamlit_app.py       manager dashboard (today's status, pending, streaks, Ask Pulse, history)
 ```
 
+## Project documentation
+
+[docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md) — the Week 3
+submission write-up: overview, architecture, design decisions, datasets, the
+actual build log and prompts, iterations, and learnings.
+
 ## Known scope cuts (call these out as future work in the project doc)
 
 - Teams support (originally scoped, now Slack-only per the current plan).
