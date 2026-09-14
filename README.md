@@ -70,6 +70,37 @@ statuses are in (or timed out).
   persisted to `daily_summaries` before the send attempt, so nothing is
   lost and you can retry manually.
 
+## Memory (Ask Pulse)
+
+`status_entries` already accumulates one row per person per day — that
+table *is* the persistent memory the project brief asks for. What was
+missing was a way to query it in natural language instead of only
+reading the dashboard's precomputed streaks.
+
+`src/ask_pulse.py` closes that gap: it reads a rolling ~3-week window of
+`status_entries` (`src/tools/memory_tool.py` — read-only, same autonomy
+class as `jira_tool`) and hands that history to the LLM to answer a
+free-form question ("who's stuck?", "how has Priya looked this week?"),
+grounded only in what's actually in the DB — the prompt tells the model
+not to invent people, dates, or tickets that aren't in it. No
+`NEBIUS_API_KEY`? `_answer_heuristic` in `src/llm.py` answers the two
+shapes the brief calls out (streaks, one person's history) without a
+model call — same zero-setup fallback pattern as classification and
+summary generation.
+
+We didn't reach for a separate memory store (e.g. mem0): the history
+that needs remembering already has a natural relational shape — one row
+per person per day — that SQLite already owns, so a second store would
+just be a second source of truth for the same facts. Ask Pulse is a read
+query over that table, not a new one.
+
+Try it from the manager dashboard's "Ask Pulse" box, or directly:
+
+```python
+from src.ask_pulse import ask
+print(ask("who's been stuck for more than a couple of days?"))
+```
+
 ## Quickstart (zero setup, zero API keys)
 
 ```bash
@@ -120,18 +151,21 @@ streamlit run streamlit_app.py
 A read layer over the same `src/db` and `src/graphs` the rest of the app
 uses — no new backend, no HTTP API of its own. Shows: today's per-person
 status, who's still waiting on a reply, blocked/at-risk streaks (2+ days
-running), history of past summaries, and three buttons (`Run daily
-kickoff`, `Run cutoff sweep`, `Run collation`) so you can drive the whole
-pipeline from the UI instead of the CLI — useful for the demo recording.
-If `REQUIRE_SUMMARY_APPROVAL=true`, a pending-approval panel appears with
-an editable draft and Approve/Send-edited buttons.
+running), an "Ask Pulse" chat box for natural-language questions over
+status history (see Memory above), history of past summaries, and three
+buttons (`Run daily kickoff`, `Run cutoff sweep`, `Run collation`) so you
+can drive the whole pipeline from the UI instead of the CLI — useful for
+the demo recording. If `REQUIRE_SUMMARY_APPROVAL=true`, a
+pending-approval panel appears with an editable draft and
+Approve/Send-edited buttons.
 
 ## Project layout
 
 ```
 src/
   config.py            env vars + mock switches, one place
-  llm.py                classify_reply / generate_summary (+ zero-key fallback)
+  llm.py                classify_reply / generate_summary / answer_question (+ zero-key fallback)
+  ask_pulse.py          natural-language Q&A over status history (Memory, see above)
   db/
     models.py           TeamMember, StatusEntry, DailySummary, OpenPing
     store.py             all DB access
@@ -139,6 +173,7 @@ src/
     jira_tool.py         read-only
     slack_tool.py         ping send + webhook signature verification
     gmail_tool.py          summary send
+    memory_tool.py         read-only queries over status history, for ask_pulse.py
   graphs/
     ping_and_classify.py  Graph 1
     daily_collation.py    Graph 2
@@ -150,10 +185,11 @@ scripts/
   approve_summary.py    resume a paused daily_collation run (if approval gate is on)
 tests/
   test_classify.py      heuristic classifier/summarizer unit tests
+  test_ask_pulse.py      heuristic Ask Pulse unit tests
 data/
   team_members.sample.json
   mock_tickets.json
-streamlit_app.py       manager dashboard (today's status, pending, streaks, history)
+streamlit_app.py       manager dashboard (today's status, pending, streaks, Ask Pulse, history)
 ```
 
 ## Known scope cuts (call these out as future work in the project doc)

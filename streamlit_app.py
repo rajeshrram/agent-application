@@ -16,11 +16,12 @@ from datetime import date as date_cls
 
 import streamlit as st
 
-from src import config
+from src import ask_pulse, config
 from src.db import store
 from src.graphs.daily_collation import resume_collation, run_collation
 from src.graphs.ping_and_classify import TIMEOUT_SENTINEL, resume_ping, start_ping
 from src.status_style import STATUS_STYLE, style_for
+from src.tools import memory_tool
 
 st.set_page_config(page_title="Pulse", page_icon="📋", layout="wide")
 store.init_db()
@@ -278,17 +279,9 @@ st.markdown(
 )
 
 # ---------------------------------------------------------- streaks --------
-streak_rows = []
-for m in members:
-    history = store.get_status_entries_for_member(m.id, limit=30)
-    streak = 0
-    for e in history:
-        if e.classified_status in ("blocked", "at_risk"):
-            streak += 1
-        else:
-            break
-    if streak >= 2:
-        streak_rows.append((m.name, streak))
+# store.get_streak() / memory_tool.get_streaks() is the one place this
+# logic lives -- Ask Pulse (below) reads from the same function.
+streak_rows = [(s["name"], s["streak_days"]) for s in memory_tool.get_streaks(min_days=2)]
 
 if streak_rows:
     streaks_html = "".join(
@@ -308,6 +301,37 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# ---------------------------------------------------------- ask pulse ------
+st.markdown(
+    '<div class="ent-card"><h3>💬 Ask Pulse</h3>'
+    '<div class="ent-sub">Answered from status history, not just today\'s '
+    'snapshot — try "who\'s stuck?" or "how has Priya looked this week?"</div>',
+    unsafe_allow_html=True,
+)
+
+if "ask_pulse_log" not in st.session_state:
+    st.session_state.ask_pulse_log = []
+
+if not st.session_state.ask_pulse_log:
+    st.markdown('<div class="ent-empty">No questions asked yet.</div>', unsafe_allow_html=True)
+for role, text in st.session_state.ask_pulse_log:
+    with st.chat_message(role):
+        st.write(text)
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# st.chat_input always renders pinned to the bottom of the page, wherever
+# it's called from -- that's the intended spot for it here.
+question = st.chat_input("Ask about the team's history...")
+if question:
+    st.session_state.ask_pulse_log.append(("user", question))
+    try:
+        answer = ask_pulse.ask(question)
+    except Exception as exc:  # noqa: BLE001 -- one bad question shouldn't break the dashboard
+        answer = f"Couldn't answer that: {exc}"
+    st.session_state.ask_pulse_log.append(("assistant", answer))
+    st.rerun()
 
 # ------------------------------------------------------------ approval -----
 if config.REQUIRE_SUMMARY_APPROVAL:

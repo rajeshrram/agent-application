@@ -1,7 +1,8 @@
 """Thin data-access layer over the app DB (SQLite by default, swap the URL
 for Postgres later -- nothing else in the codebase needs to change)."""
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date as date_cls
+from datetime import datetime, timedelta
 from typing import Dict, Iterator, List, Optional
 
 from sqlalchemy import create_engine, delete, select, update
@@ -102,6 +103,38 @@ def get_status_entries_for_member(member_id: str, limit: int = 30) -> List[Statu
             .where(StatusEntry.team_member_id == member_id)
             .order_by(StatusEntry.date.desc())
             .limit(limit)
+        ).scalars().all()
+        s.expunge_all()
+        return list(rows)
+
+
+def get_streak(member_id: str, limit: int = 30) -> int:
+    """Consecutive most-recent days this person has been blocked or
+    at_risk, counting back from their latest entry -- 0 if their latest
+    entry is on_track/no_response or they have no history yet. The one
+    place this logic lives; the dashboard and src/tools/memory_tool.py
+    both call this instead of re-deriving it."""
+    streak = 0
+    for e in get_status_entries_for_member(member_id, limit=limit):
+        if e.classified_status in ("blocked", "at_risk"):
+            streak += 1
+        else:
+            break
+    return streak
+
+
+def get_recent_status_entries(days: int = 14) -> List[StatusEntry]:
+    """Every status entry, across every person, from the last `days` days
+    (today inclusive), most-recent-first. Unlike get_status_entries_for_date
+    (one day, everyone) or get_status_entries_for_member (one person, every
+    day), this is the "everyone, over time" read -- the raw material the
+    Ask Pulse memory tool reasons over (src/tools/memory_tool.py)."""
+    cutoff = (date_cls.today() - timedelta(days=days - 1)).isoformat()
+    with session_scope() as s:
+        rows = s.execute(
+            select(StatusEntry)
+            .where(StatusEntry.date >= cutoff)
+            .order_by(StatusEntry.date.desc())
         ).scalars().all()
         s.expunge_all()
         return list(rows)

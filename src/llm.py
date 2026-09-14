@@ -116,6 +116,63 @@ def generate_summary(date: str, entries: List[Dict]) -> str:
         return _summarize_heuristic(date, entries)
 
 
+def answer_question(question: str, snapshot: List[Dict], streaks: List[Dict]) -> str:
+    """Answers a free-form question about status history -- the "memory"
+    query the Week 3 framework asks for (src/ask_pulse.py). `snapshot` is
+    every status entry across every person for some recent window
+    (src/tools/memory_tool.get_team_snapshot); `streaks` is who's
+    currently on a blocked/at_risk run (memory_tool.get_streaks). Grounded
+    only in that data -- the prompt tells the model not to invent people,
+    dates, or tickets that aren't in it."""
+    if not config.NEBIUS_API_KEY:
+        return _answer_heuristic(question, snapshot, streaks)
+
+    rows = "\n".join(
+        f"- {e['date']} {e['name']}: {e['status']}" + (f" -- {e['blocker']}" if e.get("blocker") else "")
+        for e in snapshot
+    ) or "(no history yet)"
+    streak_lines = "\n".join(
+        f"- {s['name']}: stuck {s['streak_days']} day(s) running" for s in streaks
+    ) or "(nobody currently on a blocked/at-risk streak)"
+    prompt = (
+        "You are Pulse, a team status agent. Answer the manager's question using ONLY "
+        "the history below -- don't invent people, dates, or tickets that aren't in it. "
+        "If the history doesn't cover the question, say so.\n\n"
+        f"Status history (most recent first):\n{rows}\n\n"
+        f"Current blocked/at-risk streaks:\n{streak_lines}\n\n"
+        f"Question: {question}\n\n"
+        "Answer in 2-4 sentences, plain text, no markdown."
+    )
+    try:
+        return _get_llm().invoke(prompt).content
+    except Exception as exc:  # noqa: BLE001 -- auth/network/model-not-found, degrade gracefully
+        print(f"[llm] ask_pulse API call failed ({exc}), falling back to heuristic")
+        return _answer_heuristic(question, snapshot, streaks)
+
+
+def _answer_heuristic(question: str, snapshot: List[Dict], streaks: List[Dict]) -> str:
+    """Zero-key fallback: doesn't parse free-form questions, but answers
+    the two shapes the Week 3 brief calls out -- who's stuck, and one
+    person's recent history -- from the same data the LLM path uses."""
+    q = question.lower()
+    if "stuck" in q or "streak" in q or "sprint" in q or ("blocked" in q and "who" in q):
+        if not streaks:
+            return "Nobody's currently on a blocked/at-risk streak of 2+ days."
+        lines = [f"{s['name']} -- {s['streak_days']} day(s) running" for s in streaks]
+        return "Currently stuck: " + "; ".join(lines) + "."
+
+    for row in snapshot:
+        if row["name"].lower() in q:
+            person_rows = [r for r in snapshot if r["member_id"] == row["member_id"]]
+            recent = ", ".join(f"{r['date']}: {r['status']}" for r in person_rows[:5])
+            return f"{row['name']}'s recent status: {recent}."
+
+    return (
+        "I can answer from recent status history -- try asking who's stuck/blocked, "
+        "or about one person by name. (Set NEBIUS_API_KEY for open-ended questions.)"
+    )
+
+
 def _summarize_heuristic(date: str, entries: List[Dict]) -> str:
     counts = {"on_track": 0, "blocked": 0, "at_risk": 0, "no_response": 0}
     for e in entries:
