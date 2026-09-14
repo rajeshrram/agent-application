@@ -177,12 +177,29 @@ with st.sidebar:
 
     if st.button("⏱️  Run cutoff sweep", use_container_width=True):
         pending = store.list_pending_pings_for_date(today())
+        swept, missed = [], []
         for p in pending:
+            m = store.get_team_member(p.team_member_id)
+            name = m.name if m else p.team_member_id
             try:
-                resume_ping(p.thread_id, TIMEOUT_SENTINEL)
+                # None back means someone else (a Slack reply landing at the
+                # same moment) won the claim race for this thread first --
+                # not an error, just not swept by *this* call.
+                if resume_ping(p.thread_id, TIMEOUT_SENTINEL) is None:
+                    missed.append(name)
+                else:
+                    swept.append(name)
             except Exception as exc:  # noqa: BLE001
-                st.error(f"Failed to time out {p.team_member_id}: {exc}")
-        st.success(f"Swept {len(pending)} still-pending ping(s) to no_response.")
+                st.error(f"Failed to time out {name}: {exc}")
+        if swept:
+            st.success(f"Swept to no_response: {', '.join(swept)}")
+        else:
+            st.info("Nothing was still pending.")
+        if missed:
+            st.warning(
+                f"A reply landed at the same moment for: {', '.join(missed)} — "
+                "their actual reply was used instead, not swept."
+            )
         st.rerun()
 
     if st.button("📧  Run collation", use_container_width=True):

@@ -28,6 +28,16 @@ async def slack_events(
     raw_body = (await request.body()).decode("utf-8")
 
     if not verify_signature(x_slack_request_timestamp, raw_body, x_slack_signature):
+        # This used to fail silently -- a wrong/missing SLACK_SIGNING_SECRET or a
+        # skewed server clock rejects every real Slack event with no clue why.
+        print(
+            f"[webhook_app] signature check FAILED -- rejecting event "
+            f"(timestamp={x_slack_request_timestamp!r}, "
+            f"secret configured={bool(config.SLACK_SIGNING_SECRET)}). "
+            "If secret configured=False, set SLACK_SIGNING_SECRET in .env. "
+            "If True, check it matches the Slack app's Signing Secret exactly, "
+            "and that this machine's clock is within 5 minutes of real time."
+        )
         return JSONResponse(status_code=401, content={"error": "invalid signature"})
 
     payload = await request.json()
@@ -54,10 +64,29 @@ def _handle_reply(slack_user_id: str, reply_text: str) -> None:
     date = date_cls.today().isoformat()
     open_ping = store.find_open_ping(member.id, date)
     if open_ping is None:
-        print(f"[webhook_app] no open ping for {member.id} on {date} -- late/duplicate reply?")
+        # Most common cause: the cutoff sweep (or another delivery of this
+        # same Slack event -- Slack retries) already claimed this thread
+        # first. store.claim_ping()'s atomic flip means only one caller can
+        # ever win that race, so this reply is intentionally dropped rather
+        # than silently double-processed -- but it IS dropped, so log it.
+        print(
+            f"[webhook_app] no open (pending) ping for {member.id} on {date} -- "
+            "already resumed/timed out (race with cutoff sweep or a duplicate "
+            "Slack delivery), or this is a late/unexpected reply. Ignoring."
+        )
         return
 
     try:
-        resume_ping(open_ping.thread_id, reply_text)
+        result = resume_ping(open_ping.thread_id, reply_text)
     except Exception as exc:  # noqa: BLE001 -- one bad resume shouldn't 500 the endpoint
         print(f"[webhook_app] failed to resume {open_ping.thread_id}: {exc}")
+        return
+
+    if result is None:
+        print(
+            f"[webhook_app] lost the claim race for {open_ping.thread_id} -- "
+            "someone else (cutoff sweep / a duplicate delivery) resumed it first. "
+            f"{member.name}'s reply was NOT recorded."
+        )
+    else:
+        print(f"[webhook_app] resumed {open_ping.thread_id} with {member.name}'s reply: {reply_text!r}")
