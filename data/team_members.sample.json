@@ -1,0 +1,5 @@
+[
+  {"id": "rajesh", "name": "Rajeshkumar R", "jira_account_id": "712020:01fd4da3-9b24-499c-962d-1286bc8176b8", "slack_user_id": "U0C18DXC2HZ", "email": "rajesh@example.com"},
+  {"id": "meenu", "name": "Meenu", "jira_account_id": "712020:57664693-d14b-4fd7-9b93-36d87160f2c9", "slack_user_id": "U0C2B1GMLE4", "email": "meenu@example.com"},
+  {"id": "navilan", "name": "Navilan", "jira_account_id": "712020:d5934d82-701b-486b-bc28-ba3c08fad5ca", "slack_user_id": "U0C1EMYJ9TQ", "email": ""}
+]

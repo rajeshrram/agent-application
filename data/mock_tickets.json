@@ -1,0 +1,14 @@
+{
+  "alice.chen": [
+    {"ticket_id": "ENG-101", "title": "Add retry logic to payment webhook", "status": "In Progress"},
+    {"ticket_id": "ENG-114", "title": "Fix flaky checkout test", "status": "In Progress"}
+  ],
+  "bilal.khan": [
+    {"ticket_id": "ENG-98", "title": "Migrate auth service to new schema", "status": "In Progress"}
+  ],
+  "cara.ng": [
+    {"ticket_id": "ENG-120", "title": "Design review for notifications v2", "status": "To Do"},
+    {"ticket_id": "ENG-121", "title": "Spike: rate limiting approach", "status": "In Progress"}
+  ],
+  "_default": []
+}

@@ -1,0 +1,14 @@
+langgraph>=0.2.60
+langgraph-checkpoint-sqlite>=2.0.0
+langchain-openai>=0.2.0
+sqlalchemy>=2.0.0
+python-dotenv>=1.0.0
+pydantic>=2.7.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+slack_sdk>=3.33.0
+apscheduler>=3.10.4
+google-api-python-client>=2.149.0
+google-auth-oauthlib>=1.2.1
+requests>=2.32.0
+streamlit>=1.38.0,<2

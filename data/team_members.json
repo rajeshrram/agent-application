@@ -1,0 +1,4 @@
+[
+  {"id": "navilan", "name": "Navilan R", "jira_account_id": "mock-navilan-01", "slack_user_id": "mock-navilan-01", "email": "navilan@example.com"},
+  {"id": "meenu", "name": "Meenu",  "jira_account_id": "mock-meenu-01", "slack_user_id": "mock-meenu-01", "email": "meenu@example.com"}
+]
