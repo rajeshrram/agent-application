@@ -146,16 +146,6 @@ python scripts/run_local_demo.py
 streamlit run streamlit_app.py
 ```
 
-## 6. Submission checklist
-
-| Deliverable | Status |
-|---|---|
-| Code base on GitHub | https://github.com/rajeshrram/agent-application — pushed. |
-| Video demo (≤5 min) | Script prepared — record and link here. |
-| Project documentation | This file, plus the [rendered version](https://claude.ai/code/artifact/e08f1cc4-8993-444f-80ae-dd17e5221338) — paste into the Google Doc, or link either directly. |
-
-Submission form: https://forms.gle/HMgTU7zy6UJ8XkJX6
-
 ---
 
 *Built with Claude Code · Mastering Agentic AI, Week 3 · September 2026*
