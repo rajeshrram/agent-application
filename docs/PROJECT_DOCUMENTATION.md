@@ -130,71 +130,7 @@ facts, so Ask Pulse is a read query over the existing table, not a new one.
   Studio's hosted `meta-llama/Llama-3.3-70B-Instruct`, via its
   OpenAI-compatible endpoint.
 
-## 5. Build log & prompts
-
-The initial pipeline — both graphs, the three tools, the scheduler, the
-dashboard — was already working before this build log starts; that earlier
-session isn't captured here. What follows is the real, unedited sequence of
-what was asked of Claude Code after that, and what came back.
-
-| I asked | What got built |
-|---|---|
-| Push was rejected — "would publish a private email address" | Set the repo's git email to my GitHub noreply address, amended the commit, pushed. |
-| "I would like to create the diagram like the attached for this project" (a hand-drawn-style architecture poster) | Mapped Pulse's real architecture onto the same 4-stage layout; discovered no `node`/`bun` in this environment for the interactive canvas editor, published a static HTML artifact instead. |
-| "kindly create a png file and add to the repo" | Rendered the artifact with headless Chrome, cropped it, committed it to `docs/`, linked it from the README. |
-| "Is this application supports all the criteria for the project 3?" | Audited the app field-by-field against the Week 3 framework and Project 3C's spec; flagged two soft gaps — daily vs. weekly cadence, and "memory" being a dashboard read rather than something the agent could answer questions from. |
-| "yes please" (close the memory gap) | Built `memory_tool.py`, `llm.answer_question()` + heuristic fallback, `ask_pulse.py`, the dashboard's Ask Pulse chat card, and its tests. |
-| "whenever i click the cutoff [sweep], the reply is missing — did you add a delay?" | Grepped for any sleep/delay (none); traced two silent-failure paths in the webhook — an unlogged signature rejection, and a legitimate claim-race against the cutoff sweep — and made both observable instead of changing behavior. |
-| "what am I submitting?" | A field-by-field mapping of the Week 3 handout's submission requirements onto this repo. |
-| "1. push it. 2. demo transcript. 3. create a doc" | Pushed the three pending commits, wrote the demo script, and produced the project-report artifact. |
-| "i want to create a project documentation in docs" | This file. |
-
-## 6. Iterations
-
-What changed along the way:
-
-- **Diagram delivery.** Started down the interactive Design Canvas path
-  (drag-to-edit artboards) — the tooling that seeds it needs Node or Bun,
-  neither of which is installed here. Pivoted to a static page rendered to
-  PNG with headless Chrome and cropped with Pillow. Traded away live
-  editing; kept zero extra tooling.
-- **Memory.** The brief suggests mem0 as a persistent memory layer. Went
-  with a read-only query layer over the existing `status_entries` table
-  instead, once it was clear that table already had the shape a memory
-  store would need — one row per person per day.
-- **Streak logic.** Was written once, inline, in the dashboard. Pulled out
-  into `store.get_streak()` so the dashboard and the new memory tool can't
-  drift apart on what "stuck for two days" means.
-- **Webhook debugging.** First hypothesis (from the bug report) was a
-  deliberately added delay. It wasn't — the actual causes were two failure
-  paths that had always been silent: an unlogged 401 on signature mismatch,
-  and an unlogged claim-race between a real Slack reply and a
-  manually-triggered cutoff sweep.
-
-## 7. Learnings
-
-What I'd tell the next person building one of these:
-
-- **Read vs. write is load-bearing, not academic.** Deciding it per-tool up
-  front turned every later "should this run on its own" question into a
-  lookup instead of a debate.
-- **`interrupt()` + a checkpointer is the right tool specifically because
-  the wait is open-ended.** A reply can take minutes or hours; hand-rolling
-  that pause/resume outside LangGraph would mean building a worse version
-  of the same checkpointer.
-- **Once two independent triggers can touch the same row, you need an
-  atomic claim, not a check-then-write.** The cutoff sweep and the Slack
-  webhook can both try to resume the same paused thread;
-  `UPDATE ... WHERE status='pending'` is what makes only one of them win.
-- **A race you don't log looks like a mystery bug.** The claim-race above
-  was correct the whole time — it just wasn't visible, so it read as
-  "replies going missing" instead of "an expected race, unobserved."
-- **Zero-key heuristic fallbacks pay for themselves.** Classify, summarize,
-  and now ask-pulse all degrade to a plain-Python heuristic with no API
-  key — that's what makes the whole pipeline demoable in one command with
-  no setup.
-
-## 8. Try it
+## 5. Try it
 
 Zero setup, zero API keys — runs entirely on mocked JIRA/Slack/Gmail and a
 keyword-heuristic classifier, and prints the full ping → reply → classify →
@@ -210,7 +146,7 @@ python scripts/run_local_demo.py
 streamlit run streamlit_app.py
 ```
 
-## 9. Submission checklist
+## 6. Submission checklist
 
 | Deliverable | Status |
 |---|---|

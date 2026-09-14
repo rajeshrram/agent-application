@@ -195,8 +195,8 @@ streamlit_app.py       manager dashboard (today's status, pending, streaks, Ask 
 ## Project documentation
 
 [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md) — the Week 3
-submission write-up: overview, architecture, design decisions, datasets, the
-actual build log and prompts, iterations, and learnings.
+submission write-up: overview, architecture, design decisions, datasets, and
+a quickstart.
 
 ## Known scope cuts (call these out as future work in the project doc)
 
