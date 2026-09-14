@@ -18,6 +18,8 @@ anyone themselves, 4 days out of 5.
 
 ## Architecture
 
+![Pulse — How One Day Actually Runs](docs/pulse-how-one-day-runs.png)
+
 Two LangGraph graphs, sharing one SQLite app DB plus a separate SQLite
 checkpointer DB for paused-graph state.
 
